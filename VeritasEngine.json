@@ -1,0 +1,351 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "648abd31-0afe-4d5c-8c94-5de500fa114e",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f80bd96f-8a2b-49ff-82bd-618b41c4c051",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "648abd31-0afe-4d5c-8c94-5de500fa114e"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Research Topic: {{ $('Webhook').item.json.body.research_topic }}. {{ $json.feedback ? \"Previous Critique to Fix: \" + $json.feedback : \"Begin your initial comprehensive research and drafting phase.\" }}",
+        "options": {
+          "systemMessage": "You are an expert Autonomous Research Agent. Your primary goal is to investigate complex technical, engineering, or industry topics by executing structured research plans.\n\nOPERATIONAL RULES:\n1. Break down the user's research topic into granular search queries.\n2. Utilize your connected web search tools to gather live, up-to-date facts. Do not rely solely on internal weights or guess facts.\n3. Synthesize your findings into a comprehensive, deeply structured markdown research draft.\n4. Maintain objective tone and cite logical evidence where possible."
+        }
+      },
+      "id": "8aed5679-6417-45e6-8592-378a63648c5e",
+      "name": "Researcher AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "id": "8e9ddd40-47c7-40af-b3a7-5bfff01212ce",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        96,
+        112
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Query', ``, 'string') }}",
+        "additionalParameters": {}
+      },
+      "id": "b395f9a9-0a69-4693-bde7-63f098dc720c",
+      "name": "Brave Search",
+      "type": "@brave/n8n-nodes-brave-search.braveSearchTool",
+      "typeVersion": 1.1,
+      "position": [
+        368,
+        96
+      ],
+      "credentials": {
+        "braveSearchApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Research topic: {{ $('Webhook').item.json.body.research_topic }}\n\nResearch draft to review:\n{{ $json.output }}",
+        "options": {
+          "systemMessage": "You are a ruthless Fact-Checker, Senior Technical Editor, and Quality Assurance Agent. Your job is to stress-test the incoming research draft for logical gaps, unsupported claims, hallucinations, or vague generalizations.\n\nEVALUATION CRITERIA:\n1. Are all assertions backed by the research provided?\n2. Are there any logical contradictions or factual errors?\n\nOUTPUT INSTRUCTIONS:\n- If you find errors or missing depth, write explicit, numbered correction instructions detailing what the Researcher Agent must fix.\n- If the text is robust, accurate, and completely sound, output EXACTLY this phrase and nothing else: APPROVED"
+        }
+      },
+      "id": "e0060d7a-a669-446c-bdf1-c3d5644faff7",
+      "name": "Critic AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        592,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "aaee03dc-7c65-4825-bf3d-aea618cd9bf3",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        464,
+        208
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "0d704324-85f9-4595-a3a8-a365be82dd8d",
+              "leftValue": "={{ $json.output.trim() }}",
+              "rightValue": "APPROVED",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e1d868c-3ef0-49fe-bdb7-380c32da1abf",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        864,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ approved: $(\"Critic AI Agent\").last().json.output.trim() === \"APPROVED\", report: $(\"Researcher AI Agent\").last().json.output, final_critique: $(\"Critic AI Agent\").last().json.output }) }}",
+        "options": {}
+      },
+      "id": "b62b5a16-1713-4dae-a0d4-2641e6da9a2a",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"iteration_count\": {{ $runIndex + 1 }},\n  \"feedback\": {{ JSON.stringify($json.output) }}\n}\n",
+        "options": {}
+      },
+      "id": "5fe8cbd6-f3dd-4c2d-b48e-17584fe52fc4",
+      "name": "Edit Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1104,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "8b4fc970-83d4-40f5-9afd-def4a90a6abf",
+              "leftValue": "={{ $json.iteration_count }}",
+              "rightValue": "={{ Number($(\"Webhook\").item.json.body.max_iterations || 2) }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c905b4e3-38af-408a-9b1f-dd751cac1747",
+      "name": "If1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        784,
+        256
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Researcher AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Researcher AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Critic AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Researcher AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brave Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Researcher AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critic AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Critic AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Researcher AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "38242102-73c7-4671-a933-7de1aaf5ce7d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92cc91226736995aaf521c0aa0e7fb7d05e721679eebd187ed3cfc99b1d3bdce"
+  },
+  "nodeGroups": [],
+  "id": "OOHoKNS9Y641yZ17",
+  "tags": []
+}
